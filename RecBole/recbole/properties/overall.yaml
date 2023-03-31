@@ -1,0 +1,50 @@
+# general
+gpu_id: 0
+use_gpu: True
+seed: 2020
+state: INFO
+reproducibility: True
+data_path: 'dataset/'
+checkpoint_dir: 'saved'
+show_progress: True
+save_dataset: False
+dataset_save_path: ~
+save_dataloaders: False
+dataloaders_save_path: ~
+log_wandb: False
+wandb_project: 'recbole'
+shuffle: True
+
+# training settings
+epochs: 300
+train_batch_size: 4096
+learner: adam
+learning_rate: 0.001
+neg_sampling:
+  uniform: 1
+eval_step: 1
+stopping_step: 10
+clip_grad_norm: ~
+weight_decay: 0.0
+loss_decimal_place: 4
+require_pow: False
+
+# evaluation settings
+eval_args: 
+  split: {'RS':[0.8,0.1,0.1]}
+  group_by: user
+  order: TO
+  mode: full
+repeatable: False
+metrics: [NDCG,
+          RelMetrics, 
+          FairWORel,
+          IBOIWO,
+          IAA,
+          MME_IIF_AIF
+     ]
+topk: [1,3,5,10,20]
+valid_metric: NDCG@10
+valid_metric_bigger: True
+eval_batch_size: 4096000
+metric_decimal_place: 10

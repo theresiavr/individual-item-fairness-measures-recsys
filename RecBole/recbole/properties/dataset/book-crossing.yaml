@@ -1,0 +1,23 @@
+field_separator: "\t"
+ITEM_ID_FIELD: item_id
+
+load_col:
+    inter: [user_id, item_id, rating]
+
+val_interval:
+    rating: "[6,inf)"
+filter_inter_by_user_or_item: False
+user_inter_num_interval: "[5,inf)"
+item_inter_num_interval: "[5,inf)"
+
+# Filtering
+rm_dup_inter: last
+
+threshold:
+    rating: 6
+
+eval_args: 
+  split: {'RS':[0.8,0.1,0.1]}
+  group_by: user
+  order: RO
+  mode: full
