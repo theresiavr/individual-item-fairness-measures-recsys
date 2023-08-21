@@ -186,7 +186,7 @@ class FairWORel(AbstractMetric):
             jain_ori, jain_our = self.get_jain(item_count, slot, num_items, k, floor_km_n, km_mod_n)
             qf_ori, qf_our = self.get_QF(item_matrix_k, slot, num_items, k)
             ent_ori, ent_our = self.get_entropy(item_count,slot,num_items, k, floor_km_n, km_mod_n)
-            gini_ori, gini_our, gini_w_ori = self.get_gini(item_matrix_k,item_count,slot,num_items, k, km_mod_n)
+            gini_ori, gini_our, gini_w_ori, gini_w_our = self.get_gini(item_matrix_k,item_count,slot,num_items, k, km_mod_n)
             vocd_ori = self.get_vocd(item_count,slot, k)
             fsat_ori, fsat_our = self.get_fsat(item_count,slot,num_items, k)
 
@@ -216,6 +216,9 @@ class FairWORel(AbstractMetric):
 
             key = '{}@{}'.format('Gini-w_ori', k)
             metric_dict[key] = round(gini_w_ori, self.decimal_place)
+    
+            key = '{}@{}'.format('Gini-w_our', k)
+            metric_dict[key] = round(gini_w_our, self.decimal_place)
 
             key = '{}@{}'.format('FSat_ori', k)
             metric_dict[key] = round(fsat_ori, self.decimal_place)
@@ -289,12 +292,33 @@ class FairWORel(AbstractMetric):
         else:
             assert gini_our >= 0 and gini_our <=1, "need to be non-negative and not more than 1"
 
-
         assert abs(gini_our) == gini_our
 
+        #gini_w_our
+        m = slot/k      
+        log_array = np.flip(1/np.log2(np.arange(k)+2))
 
+        denom = n * m * log_array.sum()
 
-        return gini_index, abs(gini_our), gini_w_ori
+        ell = np.arange(k)+(n-k+1)
+
+        count = 0
+        m=int(m)
+        for l in range(1,k+1):
+                for j in range(n-l*m+1, n-l*m+m+1):
+                        count += (2*j-n-1) * 1/np.log2(l+1)
+        numerator_gini_w_min = count
+
+        numerator_gini_w_max = ((2*ell-n-1) * m *log_array).sum() #the m will cancel out with the denom
+        
+        if slot <= num_items:
+            gini_w_min = numerator_gini_w_min/denom
+        else:
+            gini_w_min = 0
+        gini_w_max = numerator_gini_w_max/denom
+
+        gini_w_our = (gini_w_ori-gini_w_min) / (gini_w_max-gini_w_min)
+        return gini_index, abs(gini_our), gini_w_ori, gini_w_our
 
     def get_entropy(self, item_count,slot,num_items, k, floor_km_n, km_mod_n):
 
@@ -400,413 +424,3 @@ class FairWORel(AbstractMetric):
         qf_our = numerator/denom
 
         return qf_ori, qf_our
-
-class MDG_OD(AbstractMetric):
-    #but instead considering new items, we consider non-new but recommended items too
-    metric_type = EvaluatorType.RANKING
-    metric_need = ['rec.items', 'data.num_items']
-
-    def __init__(self, config):
-        super().__init__(config)
-        self.topk = config['topk']
-        self.t = 10
-
-    def used_info(self, dataobject):
-        """Get the matrix of recommendation items and number of items in total item set"""
-        item_matrix = dataobject.get('rec.items')
-        num_items = dataobject.get('data.num_items') - 1
-        rec_mat = dataobject.get('rec.topk')
-        pos_items = dataobject.get("data.pos_items")
-
-        topk_idx, _ = torch.split(rec_mat, [max(self.topk), 1], dim=1)
-        topk_idx = topk_idx.to(torch.bool).numpy()
-        return item_matrix.numpy(), num_items, topk_idx, pos_items
-
-    def calculate_metric(self, dataobject):
-        item_matrix, num_items, topk_idx, pos_items = self.used_info(dataobject)
-        metric_dict = {}
-
-        for k in self.topk:
-            mdg_ori, mdg_our, OD_E, OD_F, OD_E_our, OD_F_our = self.get_metrics(item_matrix[:, :k], num_items, topk_idx[:, :k], self.t, pos_items)
-
-            key = '{}@{}'.format('MDG_ori', k)
-            metric_dict[key] = round(mdg_ori, self.decimal_place)
-
-            key = '{}@{}'.format('MDG_our', k)
-            metric_dict[key] = round(mdg_our, self.decimal_place)
-
-            key = '{}@{}'.format('OD-E_ori', k)
-            metric_dict[key] = round(OD_E, self.decimal_place)
-
-            key = '{}@{}'.format('OD-F_ori', k)
-            metric_dict[key] = round(OD_F, self.decimal_place)
-
-            key = '{}@{}'.format('OD-E_our', k)
-            metric_dict[key] = round(OD_E_our, self.decimal_place)
-
-            key = '{}@{}'.format('OD-F_our', k)
-            metric_dict[key] = round(OD_F_our, self.decimal_place)
-        return metric_dict
-        
-
-    def get_metrics(self, item_matrix, num_items, topk_idx, t, pos_items):
-        def _get_mdg_i_and_merit(item):
-            rank_weight = 1/np.log2(np.where(item_matrix==item)[1]+2)
-            rel_indicator = topk_idx[np.where(item_matrix==item)]
-            ex_i = rank_weight.sum()
-            fb_i = (rank_weight * rel_indicator).sum()
-            u_plus = np.count_nonzero(rel_indicator)
-            mdg_i = fb_i/u_plus
-            if u_plus == 0:
-                mdg_i_our = 0
-            else:
-                mdg_i_our = mdg_i
-            
-
-            merit_our = rel_indicator.sum()
-            merit_i = merit_our
-           
-            if merit_our == 0:
-                merit_our = -1
-            
-            return mdg_i, merit_i, ex_i, fb_i, mdg_i_our, merit_our
-
-        rel = pos_items
-        u_i_star = Counter(np.hstack(rel.flatten()))
-
-        list_mdg_merit_i = [_get_mdg_i_and_merit(item) for item in range(1,num_items+1)]
-       
-        list_mdg_i = np.asarray([x[0] for x in list_mdg_merit_i])
-        list_mdg_exc_i =  np.asarray([x[4] for i,x in enumerate(list_mdg_merit_i) if u_i_star[i+1]>0])
-
-        list_ex_i = [x[2]/x[1] for x in list_mdg_merit_i]
-        list_ex_i_exc =  [x[2]/x[5] for x in list_mdg_merit_i if x[5]>0]
-        list_ex_i = np.asarray(list_ex_i, dtype=float).reshape(-1,1) 
-        list_ex_i_exc = np.asarray(list_ex_i_exc,dtype=float).reshape(-1,1) 
-
-        list_fb_i = np.asarray([x[3]/x[1] for x in list_mdg_merit_i])
-        list_fb_i_exc =  [x[3]/x[5] for x in list_mdg_merit_i if x[5]>0]
-        list_fb_i = np.asarray(list_fb_i,dtype=float).reshape(-1,1) 
-        list_fb_i_exc = np.asarray(list_fb_i_exc,dtype=float).reshape(-1,1) 
-
-        #get relevant item matrix and unique count of relevant
-        mdg_i_t = list_mdg_i[list_mdg_i <= np.percentile(list_mdg_i, t)]
-        mdg_ori = mdg_i_t.mean()
-
-        mdg_i_t_exc = list_mdg_exc_i[list_mdg_exc_i <= np.percentile(list_mdg_exc_i, t)]
-        mdg_our =  mdg_i_t_exc.mean()
-
-        #do OD
-        OD_E = pdist(list_ex_i, lambda u, v: (np.abs(u-v)).sum()).mean()
-        OD_F = pdist(list_fb_i, lambda u, v: (np.abs(u-v)).sum()).mean()
-        OD_E_our = pdist(list_ex_i_exc, lambda u, v: (np.abs(u-v)).sum()).mean()
-        OD_F_our = pdist(list_fb_i_exc, lambda u, v: (np.abs(u-v)).sum()).mean()
-
-        return mdg_ori, mdg_our, OD_E, OD_F, OD_E_our, OD_F_our
-
-class IAA_true(AbstractMetric): #THIS IS MEANT FOR THE ARTIFICIAL INSERTION EXPERIMENT
-    metric_type = EvaluatorType.RANKING
-    metric_need = ['num.items', 'data.pos_items',"rec.items"]
-    smaller = True
-    def __init__(self, config):
-        super().__init__(config)
-        self.topk = config['topk']
-
-    def used_info(self, dataobject):
-        """Get the matrix of recommendation items and number of items in total item set"""
-        num_items = dataobject.get('data.num_items') - 1
-        pos_items =  dataobject.get("data.pos_items")
-        item_matrix = dataobject.get('rec.items')
-
-        return num_items, pos_items, item_matrix
-
-    def calculate_metric(self, dataobject):
-        num_items, pos_items, item_matrix = self.used_info(dataobject)
-        metric_dict = {}
-        for k in self.topk:
-            IAA_true_ori, IAA_our = self.get_IAA(num_items, pos_items, item_matrix[:, :k], k)
-            key = '{}@{}'.format('IAA_true_ori', k)
-            metric_dict[key] = round(IAA_true_ori, self.decimal_place)
-
-            key = '{}@{}'.format('IAA_our', k)
-            metric_dict[key] = round(IAA_our, self.decimal_place)
-        return metric_dict
-
-    def get_IAA(self, num_items, pos_items, item_matrix, k):
-        #TRUE rel - ORI
-        #rel part
-        num_users = item_matrix.shape[0]
-        all_item_ids =  np.arange(num_items) + 1 #item id start 1
-
-        not_in_item_matrix = np.array([all_item_ids[~np.in1d(all_item_ids, curr_rec_user)] for curr_rec_user in item_matrix], dtype=int)
-
-        full_rec_mat = np.concatenate([item_matrix, not_in_item_matrix], axis=1)
-        rel = np.array([np.in1d(full_rec_mat[i], pos_items[i], assume_unique=True) for i in range(num_users)], dtype=int) 
-        #does not need + 1 anymore like the actual IAA because we use the actual index.
-       
-        att = np.zeros_like(full_rec_mat, dtype='float64')
-        att[:,:k] = (k-np.arange(1,k+1))/(k-1) #normalised
-       
-        IAA_u_true = np.abs(att-rel).sum(axis=1) / num_items 
-        IAA_ori_true = IAA_u_true.mean()
-
-        #TRUE rel - OUR
-
-        num_r_u_star = rel.sum(axis=1)
-        len_for_eval_our = np.where(num_r_u_star>k, num_r_u_star, k) #get max between num_r_u_star and k
-
-        fixed_att = np.zeros_like(full_rec_mat, dtype='float64')
-        fixed_att[:,:k] = (k+1-np.arange(1,k+1))/k #normalised
-        
-        cut_att = np.asarray([att_user[:len_for_eval_our[i]] for i, att_user in enumerate(fixed_att)], dtype=object)
-        cut_rel = np.asarray([rel_user[:len_for_eval_our[i]] for i, rel_user in enumerate(rel)], dtype=object)
-
-        try:
-            IAA_u_our = np.abs(cut_att-cut_rel).sum(axis=1) / num_items 
-        except:
-            IAA_u_our = np.fromiter(map(sum, np.abs(cut_att-cut_rel)), float) / num_items
-        IAA_our = IAA_u_our.mean()
-
-        return IAA_ori_true, IAA_our
-
-class IAA(AbstractMetric):
-    metric_type = EvaluatorType.RANKING
-    metric_need = ['data.num_items','rec.score']
-    smaller = True
-    def __init__(self, config):
-        super().__init__(config)
-        self.topk = config['topk']
-
-    def used_info(self, dataobject):
-        """Get the matrix of recommendation items and number of items in total item set"""
-        num_items = dataobject.get('data.num_items') - 1
-        pred_rel = dataobject.get('rec.score')
-        pos_items =  dataobject.get("data.pos_items")
-
-        try:
-            removed_pred_rel = dataobject.get("rec.removed_pred_rel")
-            return num_items, pred_rel[:,1:], pos_items, removed_pred_rel #pred_rel from 1 onwards to remove extra item in front
-        except:
-            return num_items, pred_rel[:,1:], pos_items, "" #pred_rel from 1 onwards to remove extra item in front
-
-    def calculate_metric(self, dataobject):
-        num_items, pred_rel, pos_items, removed_pred_rel = self.used_info(dataobject)
-        metric_dict = {}
-        for k in self.topk:
-
-            IAA_pred_ori, IAA_true_ori = self.get_IAA(num_items, pred_rel, pos_items, k, removed_pred_rel)
-            key = '{}@{}'.format('IAA_pred_ori', k)
-            metric_dict[key] = round(IAA_pred_ori, self.decimal_place)
-
-            key = '{}@{}'.format('IAA_true_ori', k)
-            metric_dict[key] = round(IAA_true_ori, self.decimal_place)
-
-        return metric_dict
-
-    def get_IAA(self, num_items, pred_rel, pos_items, k, removed_pred_rel):
-        #ORI PRED
-        #relevance part
-        sorted_pred_rel = pred_rel.sort(descending=True).values
-
-        if removed_pred_rel != "":
-            idx_99999 = torch.where(sorted_pred_rel==-99999)
-
-            #replace -9999 with removed pred rel
-            sorted_pred_rel[idx_99999] = removed_pred_rel.reshape_as(sorted_pred_rel[idx_99999])
-
-        nan_val = sorted_pred_rel * (sorted_pred_rel != -np.inf).to(torch.int)
-
-        #https://stackoverflow.com/questions/18689235/numpy-array-replace-nan-values-with-average-of-columns row-wise minimum value
-        filled_pred_rel = np.where(np.isnan(nan_val), ma.array(nan_val, mask=np.isnan(nan_val)).min(axis=1)[:,np.newaxis], nan_val)
-
-        #normalisation
-        min_val = filled_pred_rel.min(axis=1)[:, np.newaxis]
-        max_val = filled_pred_rel.max(axis=1)[:, np.newaxis]
-
-        denominator = max_val-min_val
-        denominator[denominator==0] = denominator[denominator==0] +1  #avoid zero division due to rel prediction as 0
-        rel = (filled_pred_rel-min_val)/denominator
-
-        #attention part
-        att = np.zeros_like(pred_rel, dtype='float64')
-        att[:,:k] = (k-np.arange(1,k+1))/(k-1) #normalised
-
-        IAA_u = np.abs(att-rel).sum(axis=1) / num_items 
-        IAA_ori_pred = IAA_u.mean()
-
-        #TRUE rel - ORI
-        #rel part
-        full_rec_mat = pred_rel.sort(descending=True, stable=True).indices.numpy()
-        rel = np.array([np.in1d(full_rec_mat[i]+1, pos_items[i], assume_unique=True) for i in range(pos_items.size)], dtype=int) 
-        #rec_mat need +1 because item index in pos_items start from 1 instead of 0
-        #pos_items size because it is np array of type object (different length), true IAA cannot use size but shape[0] instead
-        IAA_u_true = np.abs(att-rel).sum(axis=1) / num_items 
-        IAA_ori_true = IAA_u_true.mean()
-
-        return IAA_ori_pred, IAA_ori_true
-
-
-class MME_IIF_AIF(AbstractMetric):
-    metric_type = EvaluatorType.RANKING
-    metric_need = ['rec.items', 'data.num_items', "data.pos_items"]
-    smaller = True
-    def __init__(self, config):
-        super().__init__(config)
-        self.topk = config['topk']
-
-    def used_info(self, dataobject):
-        """Get the matrix of recommendation items and number of items in total item set"""
-        
-        item_matrix = dataobject.get('rec.items')
-        num_items = dataobject.get('data.num_items') - 1
-        pos_items = dataobject.get('data.pos_items')
-
-        return item_matrix.numpy(), num_items, pos_items
-
-    def calculate_metric(self, dataobject):
-        item_matrix, num_items, pos_items = self.used_info(dataobject)
-        metric_dict = {}
-        for k in self.topk:
-            MME, II_A, AI_F = self.get_metrics(item_matrix[:, :k], num_items, pos_items)
-
-            key = '{}@{}'.format('MME_ori', k)
-            metric_dict[key] = round(MME, self.decimal_place)
-
-            key = '{}@{}'.format('II-F_ori', k)
-            metric_dict[key] = round(II_A, self.decimal_place)
-
-            key = '{}@{}'.format('AI-F_ori', k)
-            metric_dict[key] = round(AI_F, self.decimal_place)
-
-        return metric_dict
-
-    def get_metrics(self, item_matrix, num_items, pos_items):
-        rec = item_matrix
-        rel = pos_items
-        m = rec.shape[0]
-
-        gamma = 0.8
-
-        #build user-item matrix
-        user_item_rel = np.zeros((m, num_items))
-
-
-        rank_matrix = np.zeros_like(user_item_rel)
-        for i in range(len(rec)):
-            rank_matrix[i][rec[i]-1] = np.where(rec[i])[0]+1
-        
-        user_item_exp_inv = np.copy(rank_matrix)
-        user_item_exp_rbp = np.copy(rank_matrix)
-
-        user_item_exp_inv[user_item_exp_inv.nonzero()] = 1/user_item_exp_inv[user_item_exp_inv.nonzero()]
-        user_item_exp_rbp[user_item_exp_rbp.nonzero()] = gamma**(user_item_exp_rbp[user_item_exp_rbp.nonzero()]-1)
-
-        for i in range(len(rel)):
-            user_item_rel[i][rel[i]-1] = 1
-
-        max_envies = np.zeros(num_items)
-
-        #Credits to https://github.com/usaito/kdd2022-fair-ranking-nsw/blob/main/src/synthetic/func.py#L64
-        for i in range(num_items):
-            u_d_swap = (user_item_exp_inv * user_item_rel[:, [i]*num_items]).sum(0)
-            d_envies = u_d_swap - u_d_swap[i]
-            max_envies[i] = d_envies.max()
-
-        MME = max_envies.mean() / m
-
-        #start II-F and AI-F
-        r_u_star = user_item_rel.sum(1)[:,np.newaxis]
-
-        e_ui_star = user_item_rel  * (1-np.power(gamma, r_u_star))/(1-gamma)
-        r_u_star[r_u_star==0] = 1
-
-        e_ui_star /= r_u_star
-
-        diff = user_item_exp_rbp - e_ui_star
-        II_F = np.power(diff, 2).mean()
-        AI_F = np.power(diff.mean(0),2).mean()
-
-        return MME, II_F, AI_F
-
-class IBOIWO(AbstractMetric):
-    metric_type = EvaluatorType.RANKING
-    metric_need = ['rec.items', 'data.num_items', "data.pos_items"]
-
-    def __init__(self, config):
-        super().__init__(config)
-        self.topk = config['topk']
-
-    def used_info(self, dataobject):
-        """Get the matrix of recommendation items and number of items in total item set"""
-        
-        item_matrix = dataobject.get('rec.items')
-        num_items = dataobject.get('data.num_items') - 1
-        pos_items = dataobject.get('data.pos_items')
-
-        return item_matrix.numpy(), num_items, pos_items
-
-    def calculate_metric(self, dataobject):
-        item_matrix, num_items, pos_items = self.used_info(dataobject)
-        metric_dict = {}
-
-        for k in self.topk:
-            
-            IBO_ori, IWO_ori, IBO_our, IWO_our = self.get_IBOIWO(item_matrix[:, :k], num_items, pos_items)
-            key = '{}@{}'.format('IBO_ori', k)
-            metric_dict[key] = round(IBO_ori, self.decimal_place)
-
-            key = '{}@{}'.format('IWO_ori', k)
-            metric_dict[key] = round(IWO_ori, self.decimal_place)
-
-            key = '{}@{}'.format('IBO_our', k)
-            metric_dict[key] = round(IBO_our, self.decimal_place)
-
-            key = '{}@{}'.format('IWO_our', k)
-            metric_dict[key] = round(IWO_our, self.decimal_place)
-
-        return metric_dict
-
-    def get_IBOIWO(self, item_matrix, num_items, pos_items):
-        rec = item_matrix
-        rel = pos_items
-        m = rec.shape[0]
-        k = rec.shape[1]
-        inv = 1/(np.arange(k, dtype="int")+1)
-
-
-        user_item_rel = np.zeros((m, num_items))
-        rank_matrix = np.zeros_like(user_item_rel)
-        for i in range(len(rec)):
-            rank_matrix[i][rec[i]-1] = np.where(rec[i])[0]+1
-        
-        user_item_exp_inv = np.copy(rank_matrix)
-        user_item_exp_inv[user_item_exp_inv.nonzero()] = 1/user_item_exp_inv[user_item_exp_inv.nonzero()]
-
-        for i in range(len(rel)):
-            user_item_rel[i][rel[i]-1] = 1
-
-        imp_i_arr = (user_item_exp_inv* user_item_rel).sum(0)/m
-        imp_unif_arr = user_item_rel.sum(0) * inv.sum()/num_items/m
-
-        ratio = imp_i_arr/imp_unif_arr
-        if any(np.isnan(ratio)):
-            IBO_ori = np.nan
-            IWO_ori = np.nan
-        else:
-            better_ori = ratio >= 1.1
-            worse_ori = ratio <= 0.9
-            IBO_ori = better_ori.sum()/num_items
-            IWO_ori = worse_ori.sum()/num_items
-
-        mask = imp_unif_arr!=0
-        filtered_imp_unif = imp_unif_arr[mask] #only items that have at least 1 relevant user
-
-        filtered_imp_i = imp_i_arr[mask]
-
-        better_our = filtered_imp_i >= (1.1 * filtered_imp_unif)
-        worse_our = filtered_imp_i <= (0.9 * filtered_imp_unif)
-        
-        IBO_our = better_our.mean()
-        IWO_our = worse_our.mean()
-
-        return IBO_ori, IWO_ori, IBO_our, IWO_our 
