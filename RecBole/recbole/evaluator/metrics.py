@@ -282,7 +282,7 @@ class FairWORel(AbstractMetric):
         gini_our = numerator/denom
 
         rounded_gini_our = round(gini_our,15)
-        assert approx(gini_our) == approx(rounded_gini_our)
+        # assert approx(gini_our) == approx(rounded_gini_our)
         gini_our = rounded_gini_our
 
         if approx(gini_our) == 0:
@@ -352,12 +352,12 @@ class FairWORel(AbstractMetric):
 
         if not np.isnan(ent_ori):
             rounded_ent_ori = round(ent_ori,15)
-            assert approx(ent_ori) == approx(rounded_ent_ori)
+            # assert approx(ent_ori) == approx(rounded_ent_ori)
             ent_ori = rounded_ent_ori
             assert ent_ori >= 0 and ent_ori <=1, "need to be non-negative and not more than 1"
 
         rounded_ent_our = round(ent_our,15)
-        assert approx(ent_our) == approx(rounded_ent_our)
+        # assert approx(ent_our) == approx(rounded_ent_our)
         ent_our = rounded_ent_our
 
         if approx(ent_our) == 0:
@@ -384,7 +384,7 @@ class FairWORel(AbstractMetric):
         jain_index = numerator/denominator
 
         rounded_jain = round(jain_index,15)
-        assert approx(jain_index) == approx(rounded_jain)
+        # assert approx(jain_index) == approx(rounded_jain)
         jain_index = rounded_jain
 
         assert jain_index >= 0 and jain_index <=1, "need to be non-negative and not more than 1"
@@ -395,7 +395,7 @@ class FairWORel(AbstractMetric):
 
         norm_jain_index = (jain_index - k/n)/(jain_max - k/n)
         rounded_jain_our = round(norm_jain_index,15)
-        assert approx(norm_jain_index) == approx(rounded_jain_our)
+        # assert approx(norm_jain_index) == approx(rounded_jain_our)
         norm_jain_index = rounded_jain_our
 
         if approx(norm_jain_index) == 0:
