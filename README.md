@@ -5,5 +5,12 @@ This repository contains the code used for the experiments in "Evaluation Measur
 # Abstract
 coming soon
 
+# License and Terms of Usage
+The code is usable under the MIT License. Please note that RecBole may have a different terms of usage (see their page for updated information https://github.com/RUCAIBox/RecBole). 
+
 # Citation
+If you use the code for the fairness measures in metrics.py, please cite our paper and the original papers proposing the measures.
+Specific citations coming soon.
+
+# Datasets
 coming soon
