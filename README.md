@@ -10,7 +10,7 @@ The code is usable under the MIT License. Please note that RecBole may have a di
 
 # Citation
 If you use the code for the fairness measures in metrics.py, please cite our paper and the original papers proposing the measures.
-```
+```BibTeX
 @article{10.1145/3631943,
 author = {Rampisela, Theresia Veronika and Maistro, Maria and Ruotsalo, Tuukka and Lioma, Christina},
 title = {Evaluation Measures of Individual Item Fairness for Recommender Systems: A Critical Study},
