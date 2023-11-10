@@ -470,7 +470,7 @@ class IID_AID(AbstractMetric):
 
         user_item_exp_rbp[user_item_exp_rbp.nonzero()] = gamma**(user_item_exp_rbp[user_item_exp_rbp.nonzero()]-1)
 
-        #start II-F and AI-F
+        #start II-D and AI-D
 
         e_ui_tilde = (1-np.power(gamma, k))/(1-gamma)/num_items
 
