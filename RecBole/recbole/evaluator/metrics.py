@@ -424,3 +424,58 @@ class FairWORel(AbstractMetric):
         qf_our = numerator/denom
 
         return qf_ori, qf_our
+
+class IID_AID(AbstractMetric):
+    metric_type = EvaluatorType.RANKING
+    metric_need = ['rec.items', 'data.num_items']
+    smaller = True
+    def __init__(self, config):
+        super().__init__(config)
+        self.topk = config['topk']
+
+    def used_info(self, dataobject):
+        """Get the matrix of recommendation items and number of items in total item set"""
+        
+        item_matrix = dataobject.get('rec.items')
+        num_items = dataobject.get('data.num_items') - 1
+
+        return item_matrix.numpy(), num_items
+
+    def calculate_metric(self, dataobject):
+        item_matrix, num_items = self.used_info(dataobject)
+        metric_dict = {}
+        for k in self.topk:
+            II_D, AI_D = self.get_metrics(item_matrix[:, :k], num_items, k)
+
+            key = '{}@{}'.format('II-D_ori', k)
+            metric_dict[key] = round(II_D, self.decimal_place)
+
+            key = '{}@{}'.format('AI-D_ori', k)
+            metric_dict[key] = round(AI_D, self.decimal_place)
+
+        return metric_dict
+
+    def get_metrics(self, item_matrix, num_items, k):
+        rec = item_matrix
+        m = rec.shape[0]
+
+        gamma = 0.8
+
+        #build user-item matrix
+        rank_matrix = np.zeros((m, num_items))
+        for i in range(len(rec)):
+            rank_matrix[i][rec[i]-1] = np.where(rec[i])[0]+1
+        
+        user_item_exp_rbp = np.copy(rank_matrix)
+
+        user_item_exp_rbp[user_item_exp_rbp.nonzero()] = gamma**(user_item_exp_rbp[user_item_exp_rbp.nonzero()]-1)
+
+        #start II-F and AI-F
+
+        e_ui_tilde = (1-np.power(gamma, k))/(1-gamma)/num_items
+
+        diff = user_item_exp_rbp - e_ui_tilde
+        II_D = np.power(diff, 2).mean()
+        AI_D = np.power(diff.mean(0),2).mean()
+
+        return II_D, AI_D
