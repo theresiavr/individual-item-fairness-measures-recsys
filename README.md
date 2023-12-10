@@ -35,6 +35,6 @@ We use the following datasets, that can be downloaded from the Google Drive fold
 - Ml-1m is under the MovieLens folder; the file is ml-1m.zip
 
 1. Download the zip files corresponding to the full datasets (not the examples), place them inside the empty dataset folder in the main folder.
-2. Unzip the files
-3. Ensure that the name of the folder and the .inter files are the same as in the [dataset properties](https://github.com/theresiavr/individual-item-fairness-measures-recsys/tree/main/RecBole/recbole/properties/dataset)
+2. Unzip the files.
+3. Ensure that the name of the folder and the .inter files are the same as in the [dataset properties](https://github.com/theresiavr/individual-item-fairness-measures-recsys/tree/main/RecBole/recbole/properties/dataset).
 
