@@ -16,14 +16,19 @@ If you use the code for the fairness measures in metrics.py, please cite our pap
 @article{10.1145/3631943,
 author = {Rampisela, Theresia Veronika and Maistro, Maria and Ruotsalo, Tuukka and Lioma, Christina},
 title = {Evaluation Measures of Individual Item Fairness for Recommender Systems: A Critical Study},
-year = {2023},
+year = {2024},
+issue_date = {June 2025},
 publisher = {Association for Computing Machinery},
 address = {New York, NY, USA},
+volume = {3},
+number = {2},
 url = {https://doi.org/10.1145/3631943},
 doi = {10.1145/3631943},
-note = {Just Accepted},
 journal = {ACM Trans. Recomm. Syst.},
-month = {nov},
+month = nov,
+articleno = {18},
+numpages = {52},
+keywords = {Item fairness, individual fairness, fairness measures, evaluation measures, recommender systems}
 }
 ```
 
