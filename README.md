@@ -1,6 +1,6 @@
-# Individual Item Fairness Measures in Recommender Systems (RecSys) ⚖
+# 🏆 Individual Item Fairness Measures in Recommender Systems (RecSys) ⚖
 
-This repository contains the code used for the experiments and analysis in "Evaluation Measures of Individual Item Fairness for Recommender Systems: A Critical Study" by Theresia Veronika Rampisela, Maria Maistro, Tuukka Ruotsalo, and Christina Lioma. This work has been accepted to ACM Transaction on Recommender Systems (ACM TORS). 
+This repository contains the code used for the experiments and analysis in "Evaluation Measures of Individual Item Fairness for Recommender Systems: A Critical Study" by Theresia Veronika Rampisela, Maria Maistro, Tuukka Ruotsalo, and Christina Lioma. This work has been accepted to ACM Transaction on Recommender Systems (ACM TORS). In 2024, the paper received the "Women in RecSys Journal Paper of The Year" award (junior category) 🏆.
 
 [[ACM]](https://doi.org/10.1145/3631943) [[arXiv]](https://arxiv.org/abs/2311.01013)
 
